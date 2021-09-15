@@ -1,0 +1,22 @@
+19 files have been decrypted.
+----------------------------------------
+C:\Users\Muhammad Abdul Latif\Desktop\beauty_and_the_beast.pdf.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\creative_destruction_docx.pdf.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\desktop.ini.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\new-technology.jpg.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\OIP (3).jfif.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\R (1).jfif.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\R (2).jfif.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\Ransomware Protected.png.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\Short_Stories_3.doc.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\ssonholiday.pdf.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\technology-1.jpg.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\Test.txt.jcrypt
+C:\Users\Muhammad Abdul Latif\Desktop\wifi6-and-5g-uses-best-practices.jpg.jcrypt
+C:\Users\Muhammad Abdul Latif\Pictures\desktop.ini.jcrypt
+C:\Users\Muhammad Abdul Latif\Pictures\Camera Roll\desktop.ini.jcrypt
+C:\Users\Muhammad Abdul Latif\Pictures\Saved Pictures\desktop.ini.jcrypt
+C:\Users\Muhammad Abdul Latif\Documents\Attack test.txt.jcrypt
+C:\Users\Muhammad Abdul Latif\Documents\desktop.ini.jcrypt
+C:\Users\Muhammad Abdul Latif\Documents\Draft.txt.jcrypt
+

